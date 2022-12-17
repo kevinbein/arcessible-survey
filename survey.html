@@ -1,0 +1,733 @@
+<!--
+You wanna have eye cancer or a mild stroke? 
+Look no further! The code below will satisfy all your needs! 
+.
+.
+.
+In all seriousness, I hacked this tool together because of the lack of alternatives. 
+It works great for my purpose, that is, evaluating some hypotheses from my master thesis.
+
+If you are interested in some of my more professional work or want to work together, don't
+hesitate and shoot me an email:
+    mail@<this domain>
+
+In case you feel like a pirate for whatever reason, well, I cannot stop you.
+-->
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MT Evaluation</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+		<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js" integrity="sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" crossorigin="anonymous"></script>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body>
+		<div class="container p-8 flex-col flex items-center justify-items-center w-100">
+			<div id="step1" class="text-left w-96">
+				<h1 class="text-2xl text-center">Welcome to the survey of my Master Thesis!</h1>
+				<br>
+				<p>Hi! My name is Kevin and in my master thesis I am researching how rooms and spaces (from an architectural perspective) need to be configured such that augmented reality applications are universally accessible. </p>
+				<br>
+				<p class="text-xs italic">I won't go into more details here (actually knowing less is better for this survey ;)) but if you want to learn more about my thesis, please don't hesitate to shoot me an email at <a class="underline text-blue-400 hover:text-blue-600" href="mailto:kevin.bein@tum.de">kevin.bein@tum.de</a> or write me directly on telegram or whatsapp. Thank you in advance!</p>
+				<br>
+				<p>The following should take you <span class="font-bold">no longer than 10 minutes!</span></p>
+				<br>
+				<p>The survey itself is simple. I will show you 12 different clips (10-20 seconds) and I will ask you one of the two following questions each time:</p>
+				<ul class="list-disc list-outside ml-8 mt-4">
+					<li class="mb-4">"Is the football <i class="italic font-semibold">in front</i>, <i class="italic font-semibold">at the same height</i> or <i class="italic font-semibold">behind</i> the reference point. The reference point is different from scene to scene, but I will mark it for you.</li>
+					<li>Approximately how far away do you think are the boxing gloves in this scene? I will present your three different options, for example 2m, 4m or 6m.</li>
+				</ul>
+				<br>
+				<p>Before starting, let me mention the following:
+				<ul class="list-disc list-outside ml-8 mt-2">
+					<li>The evaluation is completely <span class="font-bold">anonymous</span>!</li>
+					<li>The <i class="italic">football</i> and the <i class="italic">boxing gloves</i> objects are life-size (20x20x20 cm and 22x27x16 cm)</li>
+					<li>There are a total of 12 short recordings</li>
+					<li>Don't over-analyze the shown scenes ;)</li>
+				</ul>
+				<br>
+				<div class="w-full text-center">
+					<button id="start-survey" class="inline-block rounded bg-slate-300 p-2 m-2 pl-4 pr-4 hover:bg-slate-500 hover:text-white">Ready? Let's go!</button>
+				</div>
+			</div>
+			<div id="step2"></div>
+			<div id="step3" class="hidden text-center flex self-center justify-items-center flex-col">
+				<div>
+					<div class="overflow-x-auto relative">
+					<h1 class="text-center m-2 font-bold text-xl">Summary</h1>
+					<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+						<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+							<tr>
+								<th scope="col" class="py-3 px-6">Number</th>
+								<th scope="col" class="py-3 px-6">Selection</th>
+								<th scope="col" class="py-3 px-6">Comment</th>
+							</tr>
+						</thead>
+						<tbody id="step3-summary"></tbody>
+					</table>
+					<p class="m-4">Are you happy with your answers?</p>
+				</div>
+				<div id="alert-upload" class="p-4 mb-4 mt-8 hidden text-center text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+					<span class="font-medium">Error!</span> &nbsp; Submitting your results to our database failed :\ Are you still connected to the internet? 
+				</div>
+				<div class="">
+					<button id="button-back-to-survey" class="rounded border border-slate-300 p-2 m-2 pl-4 pr-4 hover:bg-slate-500 hover:text-white" type="submit">Back</button>
+					<button id="submit-survey" type="submit" class="rounded bg-slate-300 p-2 m-2 pl-4 pr-4 hover:bg-slate-500 hover:text-white">Submit</button>
+				</div>
+			</div>
+		</div>
+		<div id="step4" class="hidden text-center">
+			<h1>Thank you for participating!</h1>
+			<br>
+			<p>
+				As mentioned before, if you have any questions or remarks, please don't hesitate to shoot me an email at <a class="underline text-blue-400 hover:text-blue-600" href="mailto:kevin.bein@tum.de">kevin.bein@tum.de</a> or write me directly on telegram or whatsapp.</p>
+			</p>
+		</div>
+
+		<script>
+const l = console.log;
+
+const CONFIG = {
+	minAnswerLength: 50,
+	maxAnswerLength: 500,
+	minCommentLength: -1, // Optional
+	maxCommentLength: 500,
+};
+
+const tasks = [
+		// CVD
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the two tables on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdCipPool1",
+			video_link: "https://youtube.com/shorts/80HlmwZXzno"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the two tables on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdCipPool2",
+			video_link: "https://youtube.com/shorts/fEE7tuWzuBY"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the two tables on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdCipPool3",
+			video_link: "https://youtube.com/shorts/I94H1m_DoOU"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFourthFloorAisle1",
+			video_link: "https://youtube.com/shorts/yRVwl0n-dvs"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFourthFloorAisle2",
+			video_link: "https://youtube.com/shorts/lYMkWbcoEGU"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFourthFloorAisle3",
+			video_link: "https://youtube.com/shorts/TNWVwsdPoTA"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFirstFloorTrashCans1",
+			video_link: "https://youtube.com/shorts/iOxylMlotkY"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFirstFloorTrashCans2",
+			video_link: "https://youtube.com/shorts/VyJKf8rQnZo"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the bins on the left?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdFirstFloorTrashCans3",
+			video_link: "https://youtube.com/shorts/4fe0ezGtVro"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the intersection of the benches?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdChilloutBeforeLibrary1",
+			video_link: "https://youtube.com/shorts/m44wKXrbnPI"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the intersection of the benches?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdChilloutBeforeLibrary2",
+			video_link: "https://youtube.com/shorts/Zu0yNQsM2tY"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the intersection of the benches?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdChilloutBeforeLibrary3",
+			video_link: "https://youtube.com/shorts/l9UEITII4rg"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the gap between the last two shelves on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdLibraryBetweenShelves1",
+			video_link: "https://youtube.com/shorts/06-yqmT3FO4"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the gap between the last two shelves on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdLibraryBetweenShelves2",
+			video_link: "https://youtube.com/shorts/Ibyw51qLJ2Q"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">in front</i>, <i class="italic">at the same height</i> or <i class="italic">behind</i> the gap between the last two shelves on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'In front', 'At the same height', 'Behind' ],
+			name: "cvdLibraryBetweenShelves3",
+			video_link: "https://youtube.com/shorts/9OWZmnOuD7s"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">at the same height</i> of the second cubicle wall on the right, <i class="italic">between</i> the second and third cubicle wall on the right or <i class="italic">at the same height</i> of the third cubicle wall on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'At the same height as the 2. cubicle wall', 'Between the 2. and 3. cubicle wall', 'At the same height as the 3. cubicle wall' ],
+			name: "cvdLibraryBetweenCubicles1",
+			video_link: "https://youtube.com/shorts/gFykgjSu0lk"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">at the same height</i> of the second cubicle wall on the right, <i class="italic">between</i> the second and third cubicle wall on the right or <i class="italic">at the same height</i> of the third cubicle wall on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'At the same height as the 2. cubicle wall', 'Between the 2. and 3. cubicle wall', 'At the same height as the 3. cubicle wall' ],
+			name: "cvdLibraryBetweenCubicles2",
+			video_link: "https://youtube.com/shorts/yRV54eQKFE0"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Is the football <i class="italic">at the same height</i> of the second cubicle wall on the right, <i class="italic">between</i> the second and third cubicle wall on the right or <i class="italic">at the same height</i> of the third cubicle wall on the right?</p>`,
+			type: "selection",
+			selection_answers: [ 'At the same height as the 2. cubicle wall', 'Between the 2. and 3. cubicle wall', 'At the same height as the 3. cubicle wall' ],
+			name: "cvdLibraryBetweenCubicles3",
+			video_link: "https://youtube.com/shorts/lfPHjeRxlfY"
+		},
+
+		// Motion
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '10 meters', '6 meters', '3 meters' ],
+			name: "motionCipPool1",
+			video_link: "https://youtube.com/shorts/Hq2UVFwOtwA"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '4 meters', '3 meters', '1 meter' ],
+			name: "motionCipPool2",
+			video_link: "https://youtube.com/shorts/_oMkqREuOtw"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '4 meters', '3 meters', '2 meters' ],
+			name: "motionCipPool3",
+			video_link: "https://youtube.com/shorts/1GFJpW6769s"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '8 meters', '6 meters', '4 meters' ],
+			name: "motionKitchen1",
+			video_link: "https://youtube.com/shorts/5lbw5FrZmfU"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '3 meters', '2 meters', '1 meter' ],
+			name: "motionKitchen2",
+			video_link: "https://youtube.com/shorts/mHVJNkGBR1c"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '3 meters', '2 meters', '1 meter' ],
+			name: "motionKitchen3",
+			video_link: "https://youtube.com/shorts/4GbdWucsZzw"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '6 meters', '4 meters', '2 meters' ],
+			name: "motionRoomHome1",
+			video_link: "https://youtube.com/shorts/bVzRniBY6O4"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '5 meters', '4 meters', '3 meters' ],
+			name: "motionRoomHome2",
+			video_link: "https://youtube.com/shorts/Xl_4QwFlhJs"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '3 meters', '2 meters', '1 meter' ],
+			name: "motionRoomHome3",
+			video_link: "https://youtube.com/shorts/w2LBVr4kRTg"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '25 meters', '20 meters', '10 meters' ],
+			name: "motionExcellenceHall1",
+			video_link: "https://youtube.com/shorts/NmGuysBEwnY"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '15 meters', '12 meters', '8 meters' ],
+			name: "motionExcellenceHall2",
+			video_link: "https://youtube.com/shorts/llhr73PxfzQ"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '8 meters', '6 meters', '4 meters' ],
+			name: "motionExcellenceHall3",
+			video_link: "https://youtube.com/shorts/iKikTWyt87w"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '15 meters', '12 meters', '9 meters' ],
+			name: "motionStatue1",
+			video_link: "https://youtube.com/shorts/EE8nb0TnQ5Q"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '15 meters', '10 meters', '6 meters' ],
+			name: "motionStatue2",
+			video_link: "https://youtube.com/shorts/fi6-WibCODU"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '3 meters', '2 meters', '1 meter' ],
+			name: "motionStatue3",
+			video_link: "https://youtube.com/shorts/oYPJmM5-4EE"
+		},
+
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '23 meters', '18 meters', '13 meters' ],
+			name: "motionSaloon1",
+			video_link: "https://youtube.com/shorts/s37L5DX9QcY"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '20 meters', '15 meters', '10 meters' ],
+			name: "motionSaloon2",
+			video_link: "https://youtube.com/shorts/mEWKp6iMJUU"
+		},
+		{ 
+			task: `Watch the video clip until the end. Afterwards, please answer the question below.`,
+			hypothesis: `Approximately how far away do you think are the boxing gloves in this scene?`,
+			type: "selection",
+			selection_answers: [ '7 meters', '5 meters', '3 meters' ],
+			name: "motionSaloon3",
+			video_link: "https://youtube.com/shorts/_KqIkcpSE2o"
+		},
+];
+
+const generateUUIDv4 = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+let pickedTasks;
+
+const pickTasks = () => {
+	pickedTasks = [];
+	for (let i = 0; i < 2; i++) {
+		let spentIndices = [0, 0, 0];
+		for (let j = 0; j < 6; j++) {
+			while (true) {
+				let index = Math.floor(Math.random(0,1) * 3)
+				if (spentIndices[index] == 2) {
+					continue;
+				}
+				pickedTasks.push(tasks[(i * 6 * 3) + (j * 3) + index]);
+				spentIndices[index] += 1;
+				// l("Picked task: ", index, " -> ", (i * 6 * 3) + (j * 3) + index); 
+				break;
+			}
+		}
+	}
+};
+
+const Session = () => {
+	let session = {};
+	let uuid = window.localStorage.getItem("uuid");
+	if (uuid === null) {
+		uuid = generateUUIDv4();
+		window.localStorage.setItem("uuid", uuid);
+	}
+
+	pickedTasks = window.localStorage.getItem("pickedTasks");
+	//pickedTasks = null;
+	if (pickedTasks === null) {
+		pickTasks();
+		/*pickedTasks = [
+			tasks[0  + 2],
+			tasks[3  + 2],
+			tasks[6  + 0],
+			tasks[9  + 0],
+			tasks[12 + 1],
+			tasks[15 + 1],
+			tasks[18 + 0],
+			tasks[21 + 1],
+			tasks[24 + 0],
+			tasks[27 + 1],
+			tasks[30 + 2],
+			tasks[33 + 2],
+		];*/
+		window.localStorage.setItem("pickedTasks", JSON.stringify(pickedTasks));
+	} else {
+		pickedTasks = JSON.parse(pickedTasks);
+	}
+
+	session.uuid = uuid;
+	session.started = Date.now();
+	const oldSessionResults = window.localStorage.getItem("sessionResults");
+	if (oldSessionResults !== null) {
+		session.results = JSON.parse(oldSessionResults);
+	} else {
+		session.results = new Array(pickedTasks.length);
+	}
+
+	l('Initialized session', session);
+	return session;
+};
+let session;
+
+const getVideoLink = (task) => {
+	let video_link = task.video_link.replace(/shorts/, 'embed');
+	const videoId = task.video_link.split('/').slice(-1);
+	video_link += `?autoplay=1&loop=1&playlist=${videoId}`;
+	return video_link;
+};
+
+const generateSurvey = (task, index, total) => {
+	let video_link = getVideoLink(task);
+
+	let html = '';
+	html += `<fieldset id="step2-${task.name}" class="hidden flex self-center justify-items-center flex-col">`;
+	html += `<label class="text-center m-2 font-bold text-xl">Task</label>`;
+	html += `<label class="text-center m-2 text-md">${task.task}</label>`;
+	html += `<a class="text-center m-2 text-blue-400 underline hover:text-blue-500" href="${video_link}">${video_link}</a>`;
+	html += `<iframe class="flex self-center justify-center" height="640" width="296" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+	html += `<div class="w-full flex items-center flex-col">`;
+	html += `<div class="text-center mt-8 font-bold text-xl">Question</div>`;
+	if (task.type === 'rating') {
+		let comment = session.results[index] ? session.results[index].comment : undefined;
+		comment = comment !== undefined ? comment : '';
+		html += `<div class="w-80 flex items-center justify-items-center text-center">`;
+		for (let i = 0; i <= 10; i++) {
+			let selected = '';
+			if (session.results[index] && session.results[index].answer !== undefined) {
+				selected = parseInt(session.results[index].answer) === i ? 'checked="checked"' : '';
+			}
+			html += `<div class="text-center">`;
+			html += `<label for="${task.name}-${i}" class="m-2 mb-0 inline-block">${i}</label>`;
+			html += `<input id="${task.name}-${i}" class="m-2 mt-0 inline-block" type="radio" value="${i}" ${selected} name="${task.name}">`;
+			html += `</div>`;
+		}
+		html += `</div>`;
+		html += `<p class="mt-4 italic text-sm">`;
+		html += `Optional: Leave a comment `;
+		html += `<span class="mt-4 text-sm italic">(<span id="textarea-character-count-${task.name}">${comment.length}</span>/${CONFIG.maxAnswerLength} characters)</span>`;
+		html += `</p>`;
+		html += `<div class="w-80 h-40 m-2 flex items-center justify-items-center text-center">`;
+		html += `<textarea class="p-2 w-full border-slate-300 rounded border h-full inline-block" name="${task.name}">${comment}</textarea>`;
+		html += `</div>`;
+	} else if (task.type === 'text') {
+		let answer = session.results[index] ? session.results[index].answer : undefined;
+		answer = answer !== undefined ? answer : '';
+		html += `<p class="mt-4">${task.hypothesis}</p>`;
+		html += `<p class="m-2 text-sm italic">(<span id="textarea-character-count-${task.name}">${answer.length}</span>/${CONFIG.maxAnswerLength} characters)</p>`;
+		html += `<div class="w-80 h-40 m-2 flex items-center justify-items-center text-center">`;
+		html += `<textarea class="p-2 w-full border-slate-300 rounded border h-full inline-block" name="${task.name}">${answer}</textarea>`;
+		html += `</div>`;
+	} else if (task.type === 'selection') {
+		let comment = session.results[index] ? session.results[index].comment : undefined;
+		comment = comment !== undefined ? comment : '';
+		html += `<p class="mt-4 mb-8">${task.hypothesis}</p>`;
+		for (let i = 0; i < task.selection_answers.length; i++) {
+			let selected = '';
+			if (session.results[index] && session.results[index].answer !== undefined) {
+				selected = parseInt(session.results[index].answer) === i ? 'checked="checked"' : '';
+			}
+			html += `<div>`;
+			html += `<input id="${task.name}-${i}" class="mr-4 cursor-pointer inline-block" type="radio" value="${i}" ${selected} name="${task.name}">`;
+			html += `<label for="${task.name}-${i}" class="cursor-pointer inline-block">${task.selection_answers[i]}</label>`;
+			html += `</div>`;
+		}
+		html += `<p class="mt-8 mb-4 italic text-sm">`;
+		html += `Optional: Leave a comment `;
+		html += `<span class="mt-4 text-sm italic">(<span id="textarea-character-count-${task.name}">${comment.length}</span>/${CONFIG.maxAnswerLength} characters)</span>`;
+		html += `</p>`;
+		html += `<div class="w-80 h-40 m-2 flex items-center justify-items-center text-center">`;
+		html += `<textarea class="p-2 w-full border-slate-300 rounded border h-full inline-block" name="${task.name}">${comment}</textarea>`;
+		html += `</div>`;
+	}
+	html += `<div id="error-${task.name}" class="hidden text-red-500 font-bold"></div>`;
+	html += `<div class="">`;
+	if (index > 0) {
+		html += `<button id="button-previous-${task.name}" class="rounded border border-slate-300 p-2 m-2 pl-4 pr-4 hover:bg-slate-500 hover:text-white" type="submit">Previous</button>`;
+	}
+	html += `<button id="button-next-${task.name}" class="rounded bg-slate-300 p-2 m-2 pl-4 pr-4 hover:bg-slate-500 hover:text-white" type="submit">${index + 1 < total ? 'Next' : 'Finish'}</button>`;
+	html += '</div>';
+	html += '</fieldset>';
+
+	return $(html);
+}
+
+const generateSummary = () => {
+	let html = '';
+	for (let i = 0; i < session.results.length; i++) {
+		const result = session.results[i];
+		html += '<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">';
+		html += `<th scope="row" class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white text-center">${i + 1}</th>`;
+		// html += `<td class="py-4 px-6">${result.task.task}</td>`;
+		if (result.task.type === 'rating') {
+			html += `<td class="py-4 px-6">Rating: ${result.answer}</td>`;
+			html += `<td class="py-4 px-6">${result.comment}</td>`;
+		} 
+		else if (result.task.type === 'selection') {
+			html += `<td class="py-4 px-6">${result.task.selection_answers[result.answer]}</td>`;
+			html += `<td class="py-4 px-6">${result.comment}</td>`;
+		}
+		else if (result.task.type === 'text') {
+			html += `<td class="py-4 px-6">${result.answer}</td>`;
+			html += `<td class="py-4 px-6"></td>`;
+		}
+		html += '</tr>';
+	}
+	l(session);
+	return $(html);
+};
+
+const submitSession = () => {
+	session.ended = Date.now();
+	return $.post('https://kevinbein.de/mt-arcessible-survey/submit.php', session);
+};
+
+const updateStorage = () => {
+	window.localStorage.setItem("sessionResults", JSON.stringify(session.results));
+};
+
+const main = (() => {
+	session = Session();
+	l(pickedTasks.map(t => t.name));
+
+	const taskNames = pickedTasks.map(task => task.name);
+	for (let i = 0; i < pickedTasks.length; i++) {
+		const task = pickedTasks[i];
+
+		// Render and append tasks
+		const questionEl = generateSurvey(task, i, pickedTasks.length);
+		$('#step2').append(questionEl)
+
+		// Register events
+
+		// Debug: Output when the user changes a value
+		if (task.type === 'rating' || task.type === 'selection') {
+			$(`input[type=radio][name=${task.name}]`).on('change', function() {
+				const value = $(this).val();
+				const comment = $(`textarea[name=${task.name}]`).val();
+				const result = { task, answer: value, comment };
+				l('Update result', result);
+				session.results[i] = result
+				updateStorage();
+			});
+		}
+		// Can be text answer or comment 
+		$(`textarea[name=${task.name}]`).on('input', function() {
+			const text = $(this).val();
+			let result = { task, answer: text };
+			if (task.type === 'rating') {
+				const rating = $(`input[type=radio][name=${task.name}]`).val();
+				result = { task, answer: rating, comment: text };
+			}
+			else if (task.type === 'selection') {
+				const selection = $(`input[type=radio][name=${task.name}]`).val();
+				result = { task, answer: selection, comment: text };
+			}
+			session.results[i] = result
+			updateStorage();
+			$(`#textarea-character-count-${task.name}`).text(text.length);
+		});
+
+		// User clicks on 'Previous'
+		$(`#button-previous-${task.name}`).click(() => {
+			if (i <= 0) {
+				return;
+			}
+			$(`#step2-${task.name}`).fadeOut(() => {
+				$(`#step2-${taskNames[i - 1]}`).css("display", "flex").hide().fadeIn();
+			});
+		});
+
+		// User clicks on 'Next'
+		$(`#button-next-${task.name}`).click(() => {
+			if (task.type === 'rating') {
+				const radioButtonEl = $(`input[type=radio][name=${task.name}]`)
+				const checked = radioButtonEl.is(':checked');
+				const value = radioButtonEl.val();
+				if (!checked) {
+					$(`#error-${task.name}`).text("Please select a rating.").css('display', 'flex');
+					return
+				}
+				const textAreaEl = $(`textarea[name=${task.name}]`)
+				const comment = textAreaEl.val();
+				if (comment.length <= CONFIG.minCommentLength || comment.length > CONFIG.maxCommentLength) {
+					$(`#error-${task.name}`).text(`Your comment must not be longer than ${CONFIG.maxCommentLength} characters.`).css('display', 'flex');
+					return;
+				}
+			}
+			else if (task.type === 'selection') {
+				const radioButtonEl = $(`input[type=radio][name=${task.name}]`)
+				const checked = radioButtonEl.is(':checked');
+				const value = radioButtonEl.val();
+				if (!checked) {
+					$(`#error-${task.name}`).text("Please select an answer.").css('display', 'flex');
+					return
+				}
+				const textAreaEl = $(`textarea[name=${task.name}]`)
+				const comment = textAreaEl.val();
+				if (comment.length <= CONFIG.minCommentLength || comment.length > CONFIG.maxCommentLength) {
+					$(`#error-${task.name}`).text(`Your comment must not be longer than ${CONFIG.maxCommentLength} characters.`).css('display', 'flex');
+					return;
+				}
+			}
+			else if (task.type === 'text') {
+				const textAreaEl = $(`textarea[name=${task.name}]`)
+				const text = textAreaEl.val();
+				l(text.length, text);
+				if (text.length < CONFIG.minAnswerLength || text.length > CONFIG.maxAnswerLength) {
+					$(`#error-${task.name}`).text(`${task.hypothesis} must be between ${CONFIG.minAnswerLength} and ${CONFIG.maxAnswerLength} characters long.`).css('display', 'flex');
+					return;
+				}
+			} else {
+				l(`Invalid task type '${task.type}'`);
+				return;
+			}
+
+			// Send user to the next step or the final screen
+			$(`#step2-${task.name}`).fadeOut(() => {
+				$(`#error-${task.name}`).hide();
+				if (i + 1 >= pickedTasks.length) {
+					const summaryEl = generateSummary();
+					$('#step3-summary').html(summaryEl);
+					$(`#step3`).css("display", "flex").hide().fadeIn();
+				} else {
+					$(`#step2-${taskNames[i + 1]}`).css("display", "flex").hide().fadeIn(() => {
+						const videoLink = getVideoLink(pickedTasks[i + 1]);
+						$(`#step2-${taskNames[i + 1]} iframe`).attr('src', videoLink);
+					});
+				}
+			});
+		});
+	}
+
+	$('#button-back-to-survey').click(() => {
+		$('#step3').fadeOut(() => {
+			$(`#step2-${pickedTasks[0].name}`).css("display", "flex").hide().fadeIn();
+		});
+	});
+
+	$('#start-survey').click(() => {
+		$('#step1').fadeOut(() => {
+			$(`#step2-${taskNames[0]}`).css("display", "flex").hide().fadeIn(() => {
+				const videoLink = getVideoLink(pickedTasks[0]);
+				$(`#step2-${taskNames[0]} iframe`).attr('src', videoLink);
+			});
+		});
+	});
+
+	$('#submit-survey').click(() => {
+		submitSession()
+		.fail(() => {
+			$('#alert-upload').css('display', 'flex');
+			l("failed to upload!");
+		})
+		.done(() => {
+			l('Sucessfully sent session data to server.');
+			$('#step3').fadeOut(() => {
+				$('#step4').css("display", "flex").hide().fadeIn();
+			});
+		});
+	});
+
+})()
+		</script>
+	</body>
+</html>
